@@ -8,6 +8,9 @@ public record ProductResponse(
         String sku,
         BigDecimal price,
         int stockQuantity,
-        boolean active
+        boolean active,
+        Long categoryId,
+        String categoryName
+
 ) {
 }
