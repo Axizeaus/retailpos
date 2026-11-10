@@ -3,7 +3,6 @@ package com.retailpos.controller;
 import com.retailpos.dto.ProductCreateRequest;
 import com.retailpos.dto.ProductResponse;
 import com.retailpos.dto.ProductUpdateRequest;
-import com.retailpos.entity.Product;
 import com.retailpos.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

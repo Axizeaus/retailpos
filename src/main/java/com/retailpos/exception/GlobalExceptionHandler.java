@@ -30,6 +30,32 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(DuplicateCategoryException.class)
+    public ResponseEntity<ApiErrorResponse> handleDuplicateCategory(
+            DuplicateCategoryException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(CategoryInUseException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryInUse(
+            CategoryInUseException exception,
+            HttpServletRequest request
+    ){
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationErrors(
             MethodArgumentNotValidException exception,
@@ -61,6 +87,19 @@ public class GlobalExceptionHandler {
             ProductNotFoundException exception,
             HttpServletRequest request
     ){
+        return buildErrorResponse(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryNotFound(
+            CategoryNotFoundException exception,
+            HttpServletRequest request
+    ) {
         return buildErrorResponse(
                 HttpStatus.NOT_FOUND,
                 exception.getMessage(),
