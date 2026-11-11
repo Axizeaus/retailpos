@@ -45,9 +45,10 @@ public class ProductService {
                 request.name(),
                 request.sku(),
                 request.price(),
-                request.stockQuantity(),
                 category
         );
+
+        product.setStockQuantity(request.stockQuantity());
 
         Product savedProduct = productRepository.save(product);
 
@@ -78,7 +79,6 @@ public class ProductService {
                 request.name(),
                 request.sku(),
                 request.price(),
-                request.stockQuantity(),
                 category
         );
 
@@ -105,13 +105,11 @@ public class ProductService {
             String name,
             String sku,
             java.math.BigDecimal price,
-            Integer stockQuantity,
             Category category
     ) {
         product.setName(name);
         product.setSku(sku);
         product.setPrice(price);
-        product.setStockQuantity(stockQuantity);
         product.setCategory(category);
     }
 

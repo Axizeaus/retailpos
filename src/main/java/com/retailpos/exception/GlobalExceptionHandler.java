@@ -108,6 +108,32 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(InvalidInventoryAdjustmentException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidInventoryAdjustment(
+            InvalidInventoryAdjustmentException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<ApiErrorResponse> handleInsufficientStock(
+            InsufficientStockException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
     private ResponseEntity<ApiErrorResponse> buildErrorResponse(
             HttpStatus status,
             String message,

@@ -17,10 +17,6 @@ public record ProductUpdateRequest(
         @DecimalMin(value = "0.00", message = "Price cannot be negative")
         BigDecimal price,
 
-        @NotNull(message = "Stock quantity is required")
-        @PositiveOrZero(message = "Stock quantity cannot be negative")
-        Integer stockQuantity,
-
         @NotNull(message = "Category is required")
         @Positive(message = "Category ID must be positive")
         Long categoryId
