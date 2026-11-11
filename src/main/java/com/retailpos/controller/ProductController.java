@@ -12,8 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
@@ -55,5 +53,12 @@ public class ProductController {
         productService.deactivateProduct(id);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/barcode/{barcode}")
+    public ResponseEntity<ProductResponse> getProductByBarcode(
+            @PathVariable String barcode
+    ) {
+        return ResponseEntity.ok(productService.getProductByBarcode(barcode));
     }
 }

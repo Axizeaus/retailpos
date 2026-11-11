@@ -43,6 +43,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(DuplicateBarcodeException.class)
+    public ResponseEntity<ApiErrorResponse> handleDuplicateBarcode(
+            DuplicateBarcodeException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
     @ExceptionHandler(CategoryInUseException.class)
     public ResponseEntity<ApiErrorResponse> handleCategoryInUse(
             CategoryInUseException exception,
@@ -87,6 +100,19 @@ public class GlobalExceptionHandler {
             ProductNotFoundException exception,
             HttpServletRequest request
     ){
+        return buildErrorResponse(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(ProductBarcodeNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleProductBarcodeNotFound(
+            ProductBarcodeNotFoundException exception,
+            HttpServletRequest request
+    ) {
         return buildErrorResponse(
                 HttpStatus.NOT_FOUND,
                 exception.getMessage(),

@@ -30,6 +30,9 @@ public class Product {
     @Column(nullable = false)
     private int stockQuantity = 0;
 
+    @Column(unique=true)
+    private String barcode;
+
     @Column(nullable = false)
     private boolean active = true;
 

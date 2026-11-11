@@ -16,6 +16,9 @@ public interface ProductRepository extends JpaRepository<Product,Long> {
     boolean existsBySku(String sku);
     Page<Product> findAllByActiveTrue(Pageable pageable);
     boolean existsByCategoryIdAndActiveTrue(Long categoryId);
+    boolean existsByBarcode(String barcode);
+    boolean existsByBarcodeAndIdNot(String barcode, Long id);
+    Optional<Product> findByBarcodeAndActiveTrue(String barcode);
 
     // lock the product while updating stock so concurrent requests don't overwrite each other's changes
     @Lock(LockModeType.PESSIMISTIC_WRITE)

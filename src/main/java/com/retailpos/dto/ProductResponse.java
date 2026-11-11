@@ -6,6 +6,7 @@ public record ProductResponse(
         Long id,
         String name,
         String sku,
+        String barcode,
         BigDecimal price,
         int stockQuantity,
         boolean active,

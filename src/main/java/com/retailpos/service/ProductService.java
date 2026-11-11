@@ -5,9 +5,7 @@ import com.retailpos.dto.ProductResponse;
 import com.retailpos.dto.ProductUpdateRequest;
 import com.retailpos.entity.Category;
 import com.retailpos.entity.Product;
-import com.retailpos.exception.CategoryNotFoundException;
-import com.retailpos.exception.DuplicateSkuException;
-import com.retailpos.exception.ProductNotFoundException;
+import com.retailpos.exception.*;
 import com.retailpos.repository.CategoryRepository;
 import com.retailpos.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,11 +37,18 @@ public class ProductService {
 
         Category category = getActiveCategory(request.categoryId());
 
+        String barcode = normalizeBarcode(request.barcode());
+
+        if (barcode != null && productRepository.existsByBarcode(barcode)) {
+            throw new DuplicateBarcodeException(barcode);
+        }
+
         Product product = new Product();
         applyProductData(
                 product,
                 request.name(),
                 request.sku(),
+                request.barcode(),
                 request.price(),
                 category
         );
@@ -72,12 +77,19 @@ public class ProductService {
             throw new DuplicateSkuException(request.sku());
         }
 
+        String barcode = normalizeBarcode(request.barcode());
+
+        if (barcode != null && productRepository.existsByBarcodeAndIdNot(barcode, id)) {
+            throw new DuplicateBarcodeException(barcode);
+        }
+
         Category category = getActiveCategory(request.categoryId());
 
         applyProductData(
                 product,
                 request.name(),
                 request.sku(),
+                barcode,
                 request.price(),
                 category
         );
@@ -94,21 +106,40 @@ public class ProductService {
         productRepository.save(product);
     }
 
+    public ProductResponse getProductByBarcode(String barcode) {
+        String normalizedBarcode = normalizeBarcode(barcode);
+
+        if (normalizedBarcode == null) {
+            throw new IllegalArgumentException("Barcode must not be blank");
+        }
+
+        Product product = productRepository.findByBarcodeAndActiveTrue(normalizedBarcode)
+                .orElseThrow(() -> new ProductBarcodeNotFoundException(normalizedBarcode));
+
+        return toProductResponse(product);
+    }
+
     private Category getActiveCategory(Long categoryId) {
         return categoryRepository.findById(categoryId)
                 .filter(Category::isActive)
                 .orElseThrow(() -> new CategoryNotFoundException(categoryId));
     }
 
+    private String normalizeBarcode(String barcode) {
+        return barcode == null || barcode.isBlank() ? null : barcode.trim();
+    }
+
     private void applyProductData(
             Product product,
             String name,
             String sku,
+            String barcode,
             java.math.BigDecimal price,
             Category category
     ) {
         product.setName(name);
         product.setSku(sku);
+        product.setBarcode(barcode);
         product.setPrice(price);
         product.setCategory(category);
     }
@@ -118,6 +149,7 @@ public class ProductService {
                 product.getId(),
                 product.getName(),
                 product.getSku(),
+                product.getBarcode(),
                 product.getPrice(),
                 product.getStockQuantity(),
                 product.isActive(),

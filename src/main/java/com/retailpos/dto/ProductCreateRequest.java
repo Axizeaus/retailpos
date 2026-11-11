@@ -24,7 +24,10 @@ public record ProductCreateRequest(
 
         @NotNull(message = "Category is required")
         @Positive(message = "Category ID must be positive")
-        Long categoryId
+        Long categoryId,
+
+        @Size(max = 50, message = "Barcode must not exceed 50 characters")
+        String barcode
 
 ) {
 }

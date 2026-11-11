@@ -17,6 +17,9 @@ public record ProductUpdateRequest(
         @DecimalMin(value = "0.00", message = "Price cannot be negative")
         BigDecimal price,
 
+        @Size(max = 50, message = "Barcode must not exceed 50 characters")
+        String barcode,
+
         @NotNull(message = "Category is required")
         @Positive(message = "Category ID must be positive")
         Long categoryId
