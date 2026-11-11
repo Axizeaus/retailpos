@@ -11,6 +11,8 @@ import com.retailpos.exception.ProductNotFoundException;
 import com.retailpos.repository.CategoryRepository;
 import com.retailpos.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,11 +26,9 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
 
-    public List<ProductResponse> getAllProducts() {
-        return productRepository.findAllByActiveTrue()
-                .stream()
-                .map(this::toProductResponse)
-                .toList();
+    public Page<ProductResponse> getAllProducts(Pageable pageable) {
+        return productRepository.findAllByActiveTrue(pageable)
+                .map(this::toProductResponse);
     }
 
     @Transactional
