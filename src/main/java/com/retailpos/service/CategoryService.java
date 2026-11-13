@@ -60,6 +60,7 @@ public class CategoryService {
 
         category.setName(request.name());
         category.setDescription(request.description());
+        category.setActive(true);
 
         return toCategoryResponse(category);
     }

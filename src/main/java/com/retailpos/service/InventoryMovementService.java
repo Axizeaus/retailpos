@@ -101,6 +101,12 @@ public class InventoryMovementService {
             case CORRECTION -> {
                 // corrections can increase or decrease stock and this is  left here for doc purposes.
             }
+
+            case SALE -> {
+                throw new InvalidInventoryAdjustmentException(
+                        "SALE movements can only be created through checkout."
+                );
+            }
         }
     }
 
