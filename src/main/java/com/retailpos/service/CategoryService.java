@@ -9,6 +9,8 @@ import com.retailpos.exception.CategoryNotFoundException;
 import com.retailpos.exception.DuplicateCategoryException;
 import com.retailpos.repository.CategoryRepository;
 import com.retailpos.repository.ProductRepository;
+import com.retailpos.repository.ShopRepository;
+import com.retailpos.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,16 +24,21 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+    private final ShopRepository shopRepository;
+    private final TenantContext tenantContext;
 
     @Transactional
-    public CategoryResponse createCategory(CategoryCreateRequest request){
-        if (categoryRepository.existsByName(request.name())){
+    public CategoryResponse createCategory(CategoryCreateRequest request) {
+        Long shopId = tenantContext.getShopId();
+
+        if (categoryRepository.existsByShopIdAndName(shopId, request.name())) {
             throw new DuplicateCategoryException(request.name());
         }
 
         Category category = new Category();
         category.setName(request.name());
         category.setDescription(request.description());
+        category.setShop(shopRepository.getReferenceById(shopId));
 
         Category savedCategory = categoryRepository.save(category);
 
@@ -39,22 +46,32 @@ public class CategoryService {
     }
 
     public List<CategoryResponse> getAllCategories(){
-        return categoryRepository.findAllByActiveTrue().stream().map(this::toCategoryResponse).toList();
+        Long shopId = tenantContext.getShopId();
+
+        return categoryRepository.findAllByShopIdAndActiveTrue(shopId)
+                .stream()
+                .map(this::toCategoryResponse)
+                .toList();
     }
 
+
     public CategoryResponse getCategoryById(Long id){
-        Category category = categoryRepository.findById(id).orElseThrow(() -> new CategoryNotFoundException(id));
+        Long shopId = tenantContext.getShopId();
+
+        Category category = categoryRepository.findByIdAndShopId(id, shopId).orElseThrow(() -> new CategoryNotFoundException(id));
 
         return toCategoryResponse(category);
     }
 
     @Transactional
     public CategoryResponse updateCategory(Long id, CategoryUpdateRequest request) {
-        Category category = categoryRepository.findById(id)
+        Long shopId = tenantContext.getShopId();
+
+        Category category = categoryRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new CategoryNotFoundException(id));
 
         if (!category.getName().equals(request.name())
-                && categoryRepository.existsByName(request.name())) {
+                && categoryRepository.existsByShopIdAndName(shopId, request.name())) {
             throw new DuplicateCategoryException(request.name());
         }
 
@@ -67,10 +84,12 @@ public class CategoryService {
 
     @Transactional
     public void deactivateCategory(Long id) {
-        Category category = categoryRepository.findById(id)
+
+        Long shopId= tenantContext.getShopId();
+        Category category = categoryRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new CategoryNotFoundException(id));
 
-        if (productRepository.existsByCategoryIdAndActiveTrue(id)) {
+        if (productRepository.existsByShopIdAndCategoryIdAndActiveTrue(id, shopId)) {
             throw new CategoryInUseException(id);
         }
 

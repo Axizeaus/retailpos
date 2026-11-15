@@ -16,18 +16,14 @@ import com.retailpos.exception.ProductNotFoundException;
 import com.retailpos.repository.InventoryMovementRepository;
 import com.retailpos.repository.ProductRepository;
 import com.retailpos.repository.SaleRepository;
+import com.retailpos.repository.ShopRepository;
+import com.retailpos.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -36,21 +32,25 @@ public class CheckoutService {
     private final ProductRepository productRepository;
     private final SaleRepository saleRepository;
     private final InventoryMovementRepository inventoryMovementRepository;
+    private final ShopRepository shopRepository;
+    private final TenantContext tenantContext;
 
     @Transactional
     public SaleResponse checkout(CheckoutRequest request) {
+
+        Long shopId = tenantContext.getShopId();
 
         validatePaymentMethod(request);
         validateUniqueProducts(request.items());
 
         List<CheckoutItemRequest> sortedItems = request.items().stream()
-                .sorted((a, b) -> a.productId().compareTo(b.productId()))
+                .sorted(Comparator.comparing(CheckoutItemRequest::productId))
                 .toList();
 
         Map<Long, Product> productsById = new HashMap<>();
 
         for (CheckoutItemRequest item : sortedItems) {
-            Product product = productRepository.findByIdForUpdate(item.productId())
+            Product product = productRepository.findByIdForUpdate(item.productId(), shopId)
                     .orElseThrow(() -> new ProductNotFoundException(item.productId()));
 
             if (!product.isActive()) {
@@ -97,7 +97,8 @@ public class CheckoutService {
                 totalAmount,
                 cashTendered,
                 changeDue,
-                request.paymentMethod()
+                request.paymentMethod(),
+                shopRepository.getReferenceById(shopId)
         );
 
         List<SaleItemResponse> itemResponses = new ArrayList<>();

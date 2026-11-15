@@ -9,6 +9,7 @@ import com.retailpos.exception.InvalidInventoryAdjustmentException;
 import com.retailpos.exception.ProductNotFoundException;
 import com.retailpos.repository.InventoryMovementRepository;
 import com.retailpos.repository.ProductRepository;
+import com.retailpos.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,13 +24,17 @@ public class InventoryMovementService {
     private final ProductRepository productRepository;
     private final InventoryMovementRepository inventoryMovementRepository;
 
+    private final TenantContext tenantContext;
+
     @Transactional
     public InventoryMovementResponse adjustStock(
             Long productId,
             InventoryAdjustmentRequest request
     ) {
+        Long shopId = tenantContext.getShopId();
+
         // this is pessimistic locking btw.
-        Product product = productRepository.findByIdForUpdate(productId)
+        Product product = productRepository.findByIdForUpdate(productId, shopId)
                 .orElseThrow(() -> new ProductNotFoundException(productId));
 
         if (!product.isActive()) {
@@ -65,12 +70,16 @@ public class InventoryMovementService {
             Long productId,
             Pageable pageable
     ) {
-        if (!productRepository.existsById(productId)) {
+        Long shopId = tenantContext.getShopId();
+
+        if (productRepository.findByIdAndShopId(productId, shopId).isEmpty()) {
             throw new ProductNotFoundException(productId);
         }
 
         return inventoryMovementRepository
-                .findAllByProductIdOrderByCreatedAtDesc(productId, pageable)
+                .findAllByProductIdAndProductShopIdOrderByCreatedAtDesc(
+                        productId, shopId, pageable
+                )
                 .map(this::toInventoryMovementResponse);
     }
 

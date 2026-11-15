@@ -1,3 +1,4 @@
+
 package com.retailpos.entity;
 
 import jakarta.persistence.*;
@@ -40,6 +41,10 @@ public class SaleItem {
     @Column(name = "line_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal lineTotal;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "shop_id", nullable = false)
+    private Shop shop;
+
     public SaleItem(
             Sale sale,
             Product product,
@@ -47,6 +52,7 @@ public class SaleItem {
     ) {
         this.sale = sale;
         this.product = product;
+        this.shop = sale.getShop();
         this.productName = product.getName();
         this.productSku = product.getSku();
         this.unitPrice = product.getPrice();

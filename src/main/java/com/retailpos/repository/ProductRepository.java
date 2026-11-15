@@ -1,3 +1,4 @@
+
 package com.retailpos.repository;
 
 import com.retailpos.entity.Product;
@@ -11,18 +12,48 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
-public interface ProductRepository extends JpaRepository<Product,Long> {
+public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    boolean existsBySku(String sku);
-    Page<Product> findAllByActiveTrue(Pageable pageable);
-    boolean existsByCategoryIdAndActiveTrue(Long categoryId);
-    boolean existsByBarcode(String barcode);
-    boolean existsByBarcodeAndIdNot(String barcode, Long id);
-    Optional<Product> findByBarcodeAndActiveTrue(String barcode);
+    boolean existsByShopIdAndSku(Long shopId, String sku);
 
-    // lock the product while updating stock so concurrent requests don't overwrite each other's changes
+    boolean existsByShopIdAndSkuAndIdNot(
+            Long shopId,
+            String sku,
+            Long id
+    );
+
+    Page<Product> findAllByShopIdAndActiveTrue(Long shopId, Pageable pageable);
+
+    Optional<Product> findByIdAndShopId(Long id, Long shopId);
+
+    boolean existsByShopIdAndCategoryIdAndActiveTrue(
+            Long shopId,
+            Long categoryId
+    );
+
+    boolean existsByShopIdAndBarcode(Long shopId, String barcode);
+
+    boolean existsByShopIdAndBarcodeAndIdNot(
+            Long shopId,
+            String barcode,
+            Long id
+    );
+
+    Optional<Product> findByShopIdAndBarcodeAndActiveTrue(
+            Long shopId,
+            String barcode
+    );
+
+    // Lock the product while updating stock so concurrent requests don't overwrite each other's changes.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM Product p WHERE p.id = :id")
-    Optional<Product> findByIdForUpdate(@Param("id") Long id);
-
+    @Query("""
+            SELECT p
+            FROM Product p
+            WHERE p.id = :id
+              AND p.shop.id = :shopId
+            """)
+    Optional<Product> findByIdForUpdate(
+            @Param("id") Long id,
+            @Param("shopId") Long shopId
+    );
 }

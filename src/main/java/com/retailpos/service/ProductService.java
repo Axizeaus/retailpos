@@ -8,13 +8,13 @@ import com.retailpos.entity.Product;
 import com.retailpos.exception.*;
 import com.retailpos.repository.CategoryRepository;
 import com.retailpos.repository.ProductRepository;
+import com.retailpos.repository.ShopRepository;
+import com.retailpos.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -23,15 +23,20 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final ShopRepository shopRepository;
+    private final TenantContext tenantContext;
 
     public Page<ProductResponse> getAllProducts(Pageable pageable) {
-        return productRepository.findAllByActiveTrue(pageable)
+        Long shopId = tenantContext.getShopId();
+        return productRepository.findAllByShopIdAndActiveTrue(shopId,pageable)
                 .map(this::toProductResponse);
     }
 
     @Transactional
     public ProductResponse createProduct(ProductCreateRequest request) {
-        if (productRepository.existsBySku(request.sku())) {
+        Long shopId = tenantContext.getShopId();
+
+        if (productRepository.existsByShopIdAndSku(shopId, request.sku())) {
             throw new DuplicateSkuException(request.sku());
         }
 
@@ -39,7 +44,7 @@ public class ProductService {
 
         String barcode = normalizeBarcode(request.barcode());
 
-        if (barcode != null && productRepository.existsByBarcode(barcode)) {
+        if (barcode != null && productRepository.existsByShopIdAndBarcode(shopId, barcode)) {
             throw new DuplicateBarcodeException(barcode);
         }
 
@@ -48,11 +53,12 @@ public class ProductService {
                 product,
                 request.name(),
                 request.sku(),
-                request.barcode(),
+                barcode,
                 request.price(),
                 category
         );
 
+        product.setShop(shopRepository.getReferenceById(shopId));
         product.setStockQuantity(request.stockQuantity());
 
         Product savedProduct = productRepository.save(product);
@@ -61,7 +67,9 @@ public class ProductService {
     }
 
     public ProductResponse getProductById(Long id) {
-        Product product = productRepository.findById(id)
+        Long shopId = tenantContext.getShopId();
+
+        Product product = productRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new ProductNotFoundException(id));
 
         return toProductResponse(product);
@@ -69,17 +77,20 @@ public class ProductService {
 
     @Transactional
     public ProductResponse updateProduct(Long id, ProductUpdateRequest request) {
-        Product product = productRepository.findById(id)
+        Long shopId = tenantContext.getShopId();
+
+        Product product = productRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new ProductNotFoundException(id));
 
         if (!product.getSku().equals(request.sku())
-                && productRepository.existsBySku(request.sku())) {
+                && productRepository.existsByShopIdAndSkuAndIdNot(shopId, request.sku(), id)) {
             throw new DuplicateSkuException(request.sku());
         }
 
         String barcode = normalizeBarcode(request.barcode());
 
-        if (barcode != null && productRepository.existsByBarcodeAndIdNot(barcode, id)) {
+        if (barcode != null
+                && productRepository.existsByShopIdAndBarcodeAndIdNot(shopId, barcode, id)) {
             throw new DuplicateBarcodeException(barcode);
         }
 
@@ -99,7 +110,9 @@ public class ProductService {
 
     @Transactional
     public void deactivateProduct(Long id) {
-        Product product = productRepository.findById(id)
+        Long shopId = tenantContext.getShopId();
+
+        Product product = productRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new ProductNotFoundException(id));
 
         product.setActive(false);
@@ -107,20 +120,24 @@ public class ProductService {
     }
 
     public ProductResponse getProductByBarcode(String barcode) {
+        Long shopId = tenantContext.getShopId();
+
         String normalizedBarcode = normalizeBarcode(barcode);
 
         if (normalizedBarcode == null) {
             throw new IllegalArgumentException("Barcode must not be blank");
         }
 
-        Product product = productRepository.findByBarcodeAndActiveTrue(normalizedBarcode)
+        Product product = productRepository.findByShopIdAndBarcodeAndActiveTrue(shopId, normalizedBarcode)
                 .orElseThrow(() -> new ProductBarcodeNotFoundException(normalizedBarcode));
 
         return toProductResponse(product);
     }
 
     private Category getActiveCategory(Long categoryId) {
-        return categoryRepository.findById(categoryId)
+        Long shopId = tenantContext.getShopId();
+
+        return categoryRepository.findByIdAndShopId(categoryId, shopId)
                 .filter(Category::isActive)
                 .orElseThrow(() -> new CategoryNotFoundException(categoryId));
     }

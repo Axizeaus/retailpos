@@ -21,7 +21,7 @@ public class Sale {
     @GeneratedValue(strategy = GenerationType.IDENTITY )
     Long id;
 
-    @Column(name="receipt_number", nullable = false, unique = true, length = 40)
+    @Column(name="receipt_number", nullable = false,  length = 40)
     private String receiptNumber;
 
     @Column(name="total_amount", nullable = false, precision=12, scale = 2)
@@ -43,18 +43,25 @@ public class Sale {
     @OneToMany(mappedBy = "sale", cascade = CascadeType.PERSIST)
     private List<SaleItem> items = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name="shop_id", nullable = false)
+    private Shop shop;
+
     public Sale(
             String receiptNumber,
             BigDecimal totalAmount,
             BigDecimal cashTendered,
             BigDecimal changeDue,
-            PaymentMethod paymentMethod
+            PaymentMethod paymentMethod,
+            Shop shop
+
     ) {
         this.receiptNumber = receiptNumber;
         this.totalAmount = totalAmount;
         this.cashTendered = cashTendered;
         this.changeDue = changeDue;
         this.paymentMethod = paymentMethod;
+        this.shop = shop;
         this.createdAt = Instant.now();
     }
 

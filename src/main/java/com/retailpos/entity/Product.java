@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Fetch;
 
 import java.math.BigDecimal;
 
@@ -21,7 +22,7 @@ public class Product {
     @Column(nullable = false, length = 150)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50)
     private String sku;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -30,7 +31,7 @@ public class Product {
     @Column(nullable = false)
     private int stockQuantity = 0;
 
-    @Column(unique=true)
+    @Column
     private String barcode;
 
     @Column(nullable = false)
@@ -39,4 +40,8 @@ public class Product {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name="shop_id", nullable = false)
+    private Shop shop;
 }
