@@ -1,0 +1,3 @@
+ALTER TABLE shops
+ADD COLUMN time_zone VARCHAR(50)
+NOT NULL DEFAULT 'Asia/Yangon';

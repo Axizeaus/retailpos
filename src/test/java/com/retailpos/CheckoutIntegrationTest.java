@@ -15,11 +15,16 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -239,6 +244,306 @@ class CheckoutIntegrationTest extends AbstractIntegrationTest {
         assertThat(secondProductMovements.getContent()).isEmpty();
 
         assertThat(saleRepository.count()).isEqualTo(salesBefore);
+    }
+
+    @Test
+    void shouldReturnSalesHistory() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        String checkoutBody = """
+            {
+                "paymentMethod": "CASH",
+                "cashTendered": 50.00,
+                "items": [
+                    {
+                        "productId": %d,
+                        "quantity": 2
+                    }
+                ]
+            }
+            """.formatted(testProduct.productId());
+
+        mockMvc.perform(
+                        post("/api/checkout")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(checkoutBody)
+                )
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(
+                        get("/api/sales")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                ).andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].receiptNumber").isNotEmpty())
+                .andExpect(jsonPath("$.content[0].totalAmount").value(25.00))
+                .andExpect(jsonPath("$.content[0].paymentMethod").value("CASH"))
+                .andExpect(jsonPath("$.content[0].items").doesNotExist())
+                .andExpect(jsonPath("$.page.totalElements").value(1));
+    }
+
+    @Test
+    void shouldFilterSalesByReceiptNumber() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        String checkoutBody = """
+            {
+                "paymentMethod": "CASH",
+                "cashTendered": 50.00,
+                "items": [
+                    {
+                        "productId": %d,
+                        "quantity": 2
+                    }
+                ]
+            }
+            """.formatted(testProduct.productId());
+
+        MvcResult checkoutResult = mockMvc.perform(
+                        post("/api/checkout")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(checkoutBody)
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String receiptNumber = JsonPath.read(
+                checkoutResult.getResponse().getContentAsString(),
+                "$.receiptNumber"
+        );
+
+        mockMvc.perform(
+                        get("/api/sales")
+                                .param("receiptNumber", receiptNumber.substring(4, 12))
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].receiptNumber").value(receiptNumber))
+                .andExpect(jsonPath("$.page.totalElements").value(1));
+    }
+
+    @Test
+    void shouldFilterSalesByDateRange() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        String checkoutBody = """
+            {
+                "paymentMethod": "CASH",
+                "cashTendered": 50.00,
+                "items": [
+                    {
+                        "productId": %d,
+                        "quantity": 2
+                    }
+                ]
+            }
+            """.formatted(testProduct.productId());
+
+        mockMvc.perform(
+                        post("/api/checkout")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(checkoutBody)
+                )
+                .andExpect(status().isCreated());
+
+        // cuz Asia/yangon is what's currently set up for the time zone rn.
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Yangon"));
+
+        mockMvc.perform(
+                        get("/api/sales")
+                                .param("startDate", today.toString())
+                                .param("endDate", today.toString())
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.page.totalElements").value(1));
+    }
+
+    @Test
+    void shouldReturnSaleDetailsById() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        String checkoutBody = """
+            {
+                "paymentMethod": "CASH",
+                "cashTendered": 50.00,
+                "items": [
+                    {
+                        "productId": %d,
+                        "quantity": 2
+                    }
+                ]
+            }
+            """.formatted(testProduct.productId());
+
+        MvcResult checkoutResult = mockMvc.perform(
+                        post("/api/checkout")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(checkoutBody)
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Number saleId = JsonPath.read(
+                checkoutResult.getResponse().getContentAsString(),
+                "$.id"
+        );
+
+        mockMvc.perform(
+                        get("/api/sales/{id}", saleId.longValue())
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(saleId.intValue()))
+                .andExpect(jsonPath("$.totalAmount").value(25.00))
+                .andExpect(jsonPath("$.cashTendered").value(50.00))
+                .andExpect(jsonPath("$.changeDue").value(25.00))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].productId")
+                        .value(testProduct.productId()))
+                .andExpect(jsonPath("$.items[0].productName")
+                        .value("Mineral Water"))
+                .andExpect(jsonPath("$.items[0].productSku").isNotEmpty())
+                .andExpect(jsonPath("$.items[0].unitPrice").value(12.50))
+                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                .andExpect(jsonPath("$.items[0].lineTotal").value(25.00));
+    }
+
+    @Test
+    void shouldReturnSaleDetailsByReceiptNumber() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        String checkoutBody = """
+            {
+                "paymentMethod": "CASH",
+                "cashTendered": 50.00,
+                "items": [
+                    {
+                        "productId": %d,
+                        "quantity": 2
+                    }
+                ]
+            }
+            """.formatted(testProduct.productId());
+
+        MvcResult checkoutResult = mockMvc.perform(
+                        post("/api/checkout")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(checkoutBody)
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String receiptNumber = JsonPath.read(
+                checkoutResult.getResponse().getContentAsString(),
+                "$.receiptNumber"
+        );
+
+        mockMvc.perform(
+                        get("/api/sales/receipt/{receiptNumber}", receiptNumber)
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.receiptNumber").value(receiptNumber))
+                .andExpect(jsonPath("$.totalAmount").value(25.00))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].quantity").value(2));
+    }
+
+    @Test
+    void shouldNotAllowAnotherShopToAccessSale() throws Exception {
+        TestProduct firstShop = createTestProduct(20);
+
+        String checkoutBody = """
+            {
+                "paymentMethod": "CASH",
+                "cashTendered": 50.00,
+                "items": [
+                    {
+                        "productId": %d,
+                        "quantity": 2
+                    }
+                ]
+            }
+            """.formatted(firstShop.productId());
+
+        MvcResult checkoutResult = mockMvc.perform(
+                        post("/api/checkout")
+                                .header("Authorization", firstShop.authorization())
+                                .header("X-Shop-Id", firstShop.shopId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(checkoutBody)
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String responseBody = checkoutResult.getResponse().getContentAsString();
+
+        Number saleId = JsonPath.read(responseBody, "$.id");
+        String receiptNumber = JsonPath.read(responseBody, "$.receiptNumber");
+
+
+        TestProduct secondShop = createTestProduct(20);
+
+        mockMvc.perform(
+                        get("/api/sales/{id}", saleId.longValue())
+                                .header("Authorization", secondShop.authorization())
+                                .header("X-Shop-Id", secondShop.shopId())
+                )
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(
+                        get("/api/sales")
+                                .header("Authorization", secondShop.authorization())
+                                .header("X-Shop-Id", secondShop.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.page.totalElements").value(0));
+
+        mockMvc.perform(
+                        get("/api/sales/receipt/{receiptNumber}", receiptNumber)
+                                .header("Authorization", secondShop.authorization())
+                                .header("X-Shop-Id", secondShop.shopId())
+                )
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenSaleDoesNotExist() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        mockMvc.perform(
+                        get("/api/sales/{id}", Long.MAX_VALUE)
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(
+                        get("/api/sales/receipt/{receiptNumber}", "RCP-NONEXISTENT")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isNotFound());
     }
 
     private TestProduct createTestProduct(int initialStock) throws Exception {

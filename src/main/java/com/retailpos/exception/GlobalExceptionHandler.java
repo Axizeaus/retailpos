@@ -134,6 +134,32 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(SaleNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleSaleNotFound(
+            SaleNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
+            IllegalArgumentException exception,
+            HttpServletRequest request
+    ) {
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
     @ExceptionHandler(InvalidInventoryAdjustmentException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidInventoryAdjustment(
             InvalidInventoryAdjustmentException exception,

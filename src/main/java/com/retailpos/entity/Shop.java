@@ -30,6 +30,9 @@ public class Shop {
     @Column(name="created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "time_zone", nullable = false, length = 50)
+    private String timeZone = "Asia/Yangon";
+
     public Shop(String name, String slug){
         this.name = name;
         this.slug = slug;
