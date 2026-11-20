@@ -38,12 +38,29 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        String name = request.name().trim();
+        String email = normalizeOptional(request.email());
+        String phoneNumber = normalizeOptional(request.phoneNumber());
 
-        if (userRepository.existsByEmailIgnoreCase(email)) {
+        if (email == null && phoneNumber == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "An email or phone number is required."
+            );
+        }
+
+        if (email != null && userRepository.existsByEmailIgnoreCase(email)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "An account with this email already exists."
+            );
+        }
+
+        if (phoneNumber != null
+                && userRepository.existsByPhoneNumber(phoneNumber)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "An account with this phone number already exists."
             );
         }
 
@@ -55,11 +72,19 @@ public class AuthService {
         }
 
         User user = userRepository.save(
-                new User(email, passwordEncoder.encode(request.password()))
+                new User(
+                        name,
+                        email,
+                        phoneNumber,
+                        passwordEncoder.encode(request.password())
+                )
         );
 
         Shop shop = shopRepository.save(
-                new Shop(request.shopName().trim(), generateShopSlug(request.shopName()))
+                new Shop(
+                        request.shopName().trim(),
+                        generateShopSlug(request.shopName())
+                )
         );
 
         ShopMembership membership = membershipRepository.save(
@@ -70,17 +95,31 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        String identifier = request.identifier().trim();
 
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(this::invalidCredentials);
+        User user;
+
+        if (identifier.contains("@")) {
+            String email = identifier.toLowerCase(Locale.ROOT);
+
+            user = userRepository.findByEmailIgnoreCase(email)
+                    .orElseThrow(this::invalidCredentials);
+        } else {
+            user = userRepository.findByPhoneNumber(identifier)
+                    .orElseThrow(this::invalidCredentials);
+        }
 
         if (!user.isEnabled() || !passwordEncoder.matches(
-                request.password(), user.getPasswordHash())) {
+                request.password(),
+                user.getPasswordHash()
+        )) {
             throw invalidCredentials();
         }
 
-        List<ShopMembership> memberships = membershipRepository.findAllActiveMembershipsWithActiveShops(user.getId());
+        List<ShopMembership> memberships =
+                membershipRepository.findAllActiveMembershipsWithActiveShops(
+                        user.getId()
+                );
 
         return buildAuthResponse(user, memberships);
     }
@@ -89,29 +128,40 @@ public class AuthService {
             User user,
             List<ShopMembership> memberships
     ) {
-        List<ShopMembershipResponse> membershipResponses = memberships.stream()
-                .map(membership -> new ShopMembershipResponse(
-                        membership.getShop().getId(),
-                        membership.getShop().getName(),
-                        membership.getShop().getSlug(),
-                        membership.getRole()
-                ))
-                .toList();
+        List<ShopMembershipResponse> membershipResponses =
+                memberships.stream()
+                        .map(membership -> new ShopMembershipResponse(
+                                membership.getShop().getId(),
+                                membership.getShop().getName(),
+                                membership.getShop().getSlug(),
+                                membership.getRole()
+                        ))
+                        .toList();
 
         return new AuthResponse(
                 jwtService.generateAccessToken(user.getId()),
                 "Bearer",
                 jwtService.getAccessTokenTtlSeconds(),
                 user.getId(),
+                user.getName(),
                 user.getEmail(),
+                user.getPhoneNumber(),
                 membershipResponses
         );
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value.trim().toLowerCase(Locale.ROOT);
     }
 
     private ResponseStatusException invalidCredentials() {
         return new ResponseStatusException(
                 HttpStatus.UNAUTHORIZED,
-                "Invalid email or password."
+                "Invalid email/phone number or password."
         );
     }
 

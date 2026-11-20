@@ -54,12 +54,13 @@ class TenantIsolationIntegrationTest extends AbstractIntegrationTest {
         String email = "tenant-" + UUID.randomUUID() + "@example.com";
 
         String requestBody = """
-                {
-                    "email": "%s",
-                    "password": "StrongPassword123!",
-                    "shopName": "Tenant Test Shop"
-                }
-                """.formatted(email);
+        {
+            "name": "Tenant Test User",
+            "email": "%s",
+            "password": "StrongPassword123!",
+            "shopName": "Tenant Test Shop"
+        }
+        """.formatted(email);
 
         MvcResult result = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

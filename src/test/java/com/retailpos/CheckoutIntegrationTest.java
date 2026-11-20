@@ -679,12 +679,13 @@ class CheckoutIntegrationTest extends AbstractIntegrationTest {
         String email = "checkout-" + UUID.randomUUID() + "@example.com";
 
         String registrationBody = """
-                {
-                    "email": "%s",
-                    "password": "StrongPassword123!",
-                    "shopName": "Checkout Test Shop"
-                }
-                """.formatted(email);
+            {
+                "name": "Checkout Test User",
+                "email": "%s",
+                "password": "StrongPassword123!",
+                "shopName": "Checkout Test Shop"
+            }
+            """.formatted(email);
 
         MvcResult registrationResult = mockMvc.perform(
                         post("/api/auth/register")
