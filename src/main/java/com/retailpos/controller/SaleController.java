@@ -1,6 +1,7 @@
 
 package com.retailpos.controller;
 
+import com.retailpos.dto.DailySalesSummaryResponse;
 import com.retailpos.dto.SaleResponse;
 import com.retailpos.dto.SaleSummaryResponse;
 import com.retailpos.service.SaleService;
@@ -74,6 +75,17 @@ public class SaleController {
     ) {
         return ResponseEntity.ok(
                 saleService.getSaleByReceiptNumber(receiptNumber)
+        );
+    }
+
+    @GetMapping("/summary/daily")
+    public ResponseEntity<DailySalesSummaryResponse> getDailySalesSummary(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate date
+    ) {
+        return ResponseEntity.ok(
+                saleService.getDailySalesSummary(date)
         );
     }
 }

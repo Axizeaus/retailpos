@@ -546,6 +546,135 @@ class CheckoutIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void shouldReturnDailySalesSummary() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        String checkoutBody = """
+            {
+                "paymentMethod": "CASH",
+                "cashTendered": 50.00,
+                "items": [
+                    {
+                        "productId": %d,
+                        "quantity": 2
+                    }
+                ]
+            }
+            """.formatted(testProduct.productId());
+
+        mockMvc.perform(
+                        post("/api/checkout")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(checkoutBody)
+                )
+                .andExpect(status().isCreated());
+
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Yangon"));
+
+        mockMvc.perform(
+                        get("/api/sales/summary/daily")
+                                .param("date", today.toString())
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.date").value(today.toString()))
+                .andExpect(jsonPath("$.transactionCount").value(1))
+                .andExpect(jsonPath("$.totalSales").value(25.00))
+                .andExpect(jsonPath("$.averageTransactionValue").value(25.00))
+                .andExpect(jsonPath("$.totalCashTendered").value(50.00))
+                .andExpect(jsonPath("$.totalChangeGiven").value(25.00))
+                .andExpect(jsonPath("$.paymentMethods.length()").value(1))
+                .andExpect(jsonPath("$.paymentMethods[0].paymentMethod").value("CASH"))
+                .andExpect(jsonPath("$.paymentMethods[0].transactionCount").value(1))
+                .andExpect(jsonPath("$.paymentMethods[0].totalSales").value(25.00));
+    }
+
+    @Test
+    void shouldReturnZeroSummaryWhenThereAreNoSales() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        LocalDate yesterday = LocalDate.now(ZoneId.of("Asia/Yangon"))
+                .minusDays(1);
+
+        mockMvc.perform(
+                        get("/api/sales/summary/daily")
+                                .param("date", yesterday.toString())
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.date").value(yesterday.toString()))
+                .andExpect(jsonPath("$.transactionCount").value(0))
+                .andExpect(jsonPath("$.totalSales").value(0))
+                .andExpect(jsonPath("$.averageTransactionValue").value(0))
+                .andExpect(jsonPath("$.totalCashTendered").value(0))
+                .andExpect(jsonPath("$.totalChangeGiven").value(0))
+                .andExpect(jsonPath("$.paymentMethods.length()").value(0));
+    }
+
+    @Test
+    void shouldNotIncludeAnotherShopsSalesInDailySummary() throws Exception {
+        TestProduct firstShop = createTestProduct(20);
+
+        String checkoutBody = """
+            {
+                "paymentMethod": "CASH",
+                "cashTendered": 50.00,
+                "items": [
+                    {
+                        "productId": %d,
+                        "quantity": 2
+                    }
+                ]
+            }
+            """.formatted(firstShop.productId());
+
+        mockMvc.perform(
+                        post("/api/checkout")
+                                .header("Authorization", firstShop.authorization())
+                                .header("X-Shop-Id", firstShop.shopId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(checkoutBody)
+                )
+                .andExpect(status().isCreated());
+
+        TestProduct secondShop = createTestProduct(20);
+
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Yangon"));
+
+        mockMvc.perform(
+                        get("/api/sales/summary/daily")
+                                .param("date", today.toString())
+                                .header("Authorization", secondShop.authorization())
+                                .header("X-Shop-Id", secondShop.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionCount").value(0))
+                .andExpect(jsonPath("$.totalSales").value(0))
+                .andExpect(jsonPath("$.paymentMethods.length()").value(0));
+    }
+
+    @Test
+    void shouldUseCurrentBusinessDateWhenDateIsNotProvided() throws Exception {
+        TestProduct testProduct = createTestProduct(20);
+
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Yangon"));
+
+        mockMvc.perform(
+                        get("/api/sales/summary/daily")
+                                .header("Authorization", testProduct.authorization())
+                                .header("X-Shop-Id", testProduct.shopId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.date").value(today.toString()))
+                .andExpect(jsonPath("$.transactionCount").value(0))
+                .andExpect(jsonPath("$.totalSales").value(0));
+    }
+
     private TestProduct createTestProduct(int initialStock) throws Exception {
         String email = "checkout-" + UUID.randomUUID() + "@example.com";
 

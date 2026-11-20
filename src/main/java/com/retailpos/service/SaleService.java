@@ -1,13 +1,13 @@
 package com.retailpos.service;
 
-import com.retailpos.dto.SaleItemResponse;
-import com.retailpos.dto.SaleResponse;
-import com.retailpos.dto.SaleSummaryResponse;
+import com.retailpos.dto.*;
 import com.retailpos.entity.Sale;
 import com.retailpos.entity.Shop;
 import com.retailpos.exception.SaleNotFoundException;
 import com.retailpos.repository.SaleRepository;
 import com.retailpos.repository.ShopRepository;
+import com.retailpos.repository.projection.PaymentMethodSalesProjection;
+import com.retailpos.repository.projection.SalesSummaryProjection;
 import com.retailpos.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.criteria.Predicate;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -31,6 +33,82 @@ public class SaleService {
     private final SaleRepository saleRepository;
     private final ShopRepository shopRepository;
     private final TenantContext tenantContext;
+
+    public DailySalesSummaryResponse getDailySalesSummary(LocalDate businessDate) {
+        Long shopId = tenantContext.getShopId();
+
+        Shop shop = shopRepository.findById(shopId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Authenticated shop could not be found."
+                ));
+
+        ZoneId zone = ZoneId.of(shop.getTimeZone());
+
+        LocalDate reportDate = businessDate != null
+                ? businessDate
+                : LocalDate.now(zone);
+
+        Instant start = reportDate.atStartOfDay(zone).toInstant();
+        Instant end = reportDate.plusDays(1)
+                .atStartOfDay(zone)
+                .toInstant();
+
+        SalesSummaryProjection summary = saleRepository.getDailySalesSummary(
+                shopId,
+                start,
+                end
+        );
+
+        Long transactionCount = summary.getTransactionCount();
+
+        BigDecimal totalSales = zeroIfNull(summary.getTotalSales());
+        BigDecimal totalCashTendered =
+                zeroIfNull(summary.getTotalCashTendered());
+        BigDecimal totalChangeGiven =
+                zeroIfNull(summary.getTotalChangeGiven());
+
+        BigDecimal averageTransactionValue = transactionCount == 0
+                ? BigDecimal.ZERO
+                : totalSales.divide(
+                BigDecimal.valueOf(transactionCount),
+                2,
+                RoundingMode.HALF_UP
+        );
+
+        List<PaymentMethodSalesResponse> paymentMethods =
+                saleRepository.getDailyPaymentMethodBreakdown(
+                                shopId,
+                                start,
+                                end
+                        )
+                        .stream()
+                        .map(this::toPaymentMethodSalesResponse)
+                        .toList();
+
+        return new DailySalesSummaryResponse(
+                reportDate,
+                transactionCount,
+                totalSales,
+                averageTransactionValue,
+                totalCashTendered,
+                totalChangeGiven,
+                paymentMethods
+        );
+    }
+
+    private PaymentMethodSalesResponse toPaymentMethodSalesResponse(
+            PaymentMethodSalesProjection projection
+    ) {
+        return new PaymentMethodSalesResponse(
+                projection.getPaymentMethod(),
+                projection.getTransactionCount(),
+                zeroIfNull(projection.getTotalSales())
+        );
+    }
+
+    private BigDecimal zeroIfNull(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
 
 
     public Page<SaleSummaryResponse> getSales(
